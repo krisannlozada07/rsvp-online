@@ -1,4 +1,5 @@
 import CreateEventForm from "@/components/CreateEventForm";
+import MyEvents from "@/components/MyEvents";
 
 export default function HomePage() {
   return (
@@ -17,6 +18,9 @@ export default function HomePage() {
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
         <CreateEventForm />
       </div>
+
+      {/* Events created on this browser */}
+      <MyEvents />
     </div>
   );
 }
