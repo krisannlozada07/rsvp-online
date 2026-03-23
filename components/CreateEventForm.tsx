@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
+import { localInputToUTC8ISO } from "@/lib/utils";
 
 const inputClass =
   "w-full border border-stone-300 rounded-xl px-4 py-2.5 text-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-stone-800 focus:border-transparent placeholder:text-stone-400 transition-shadow";
@@ -38,6 +39,11 @@ export default function CreateEventForm() {
       return;
     }
 
+    // Convert all datetime inputs (entered as UTC+8) to UTC ISO strings
+    const rsvp_start_utc = localInputToUTC8ISO(rsvp_start);
+    const rsvp_end_utc = localInputToUTC8ISO(rsvp_end);
+    const event_date_utc = event_date ? localInputToUTC8ISO(event_date) : null;
+
     // Generate creator token and store in localStorage
     const creator_token = uuidv4();
 
@@ -45,7 +51,7 @@ export default function CreateEventForm() {
       const res = await fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, event_date: event_date || null, location, rsvp_start, rsvp_end, creator_token }),
+        body: JSON.stringify({ title, description, event_date: event_date_utc, location, rsvp_start: rsvp_start_utc, rsvp_end: rsvp_end_utc, creator_token }),
       });
 
       if (!res.ok) {
@@ -55,9 +61,9 @@ export default function CreateEventForm() {
 
       const event = await res.json();
 
-      // Store creator token
+      // Store event + creator token so My Events list works without a Supabase query
       const stored = JSON.parse(localStorage.getItem("creator_events") || "{}");
-      stored[event.id] = creator_token;
+      stored[event.id] = { token: creator_token, event };
       localStorage.setItem("creator_events", JSON.stringify(stored));
 
       router.push(`/events/${event.id}/manage`);

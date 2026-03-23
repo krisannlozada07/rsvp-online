@@ -40,6 +40,19 @@ export function getLocalRSVPKey(eventId: string) {
   return `rsvp_${eventId}`;
 }
 
+// Interpret a datetime-local string (no timezone) as UTC+8 and return UTC ISO
+export function localInputToUTC8ISO(local: string): string {
+  if (!local) return "";
+  return new Date(local + ":00+08:00").toISOString();
+}
+
+// Convert a UTC ISO string to a datetime-local input value shown in UTC+8
+export function utcToUTC8Input(iso: string): string {
+  if (!iso) return "";
+  const utc8ms = new Date(iso).getTime() + 8 * 60 * 60 * 1000;
+  return new Date(utc8ms).toISOString().slice(0, 16);
+}
+
 export function statusLabel(status: RSVPStatus): string {
   switch (status) {
     case "open": return "RSVP Open";

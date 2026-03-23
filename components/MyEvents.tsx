@@ -1,45 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { Event } from "@/types";
 import { formatDate, getEventStatus, statusLabel, statusColor } from "@/lib/utils";
 
-interface StoredEvent {
+interface StoredEntry {
+  token: string;
   event: Event;
-  creatorToken: string;
 }
 
 export default function MyEvents() {
-  const [events, setEvents] = useState<StoredEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    async function load() {
-      const stored: Record<string, string> = JSON.parse(
-        localStorage.getItem("creator_events") || "{}"
-      );
-      const ids = Object.keys(stored);
-      if (ids.length === 0) { setLoading(false); return; }
+    const raw = localStorage.getItem("creator_events");
+    if (!raw) { setMounted(true); return; }
 
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .in("id", ids)
-        .order("created_at", { ascending: false });
+    const stored: Record<string, StoredEntry | string> = JSON.parse(raw);
+    const list: Event[] = [];
 
-      if (data) {
-        setEvents(
-          (data as Event[]).map((e) => ({ event: e, creatorToken: stored[e.id] }))
-        );
+    for (const entry of Object.values(stored)) {
+      // New format: { token, event }  |  Old format: just a token string (skip)
+      if (typeof entry === "object" && entry.event) {
+        list.push(entry.event);
       }
-      setLoading(false);
     }
-    load();
+
+    // Newest first by created_at
+    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    setEvents(list);
+    setMounted(true);
   }, []);
 
-  if (loading) return null;
-  if (events.length === 0) return null;
+  if (!mounted || events.length === 0) return null;
 
   return (
     <div>
@@ -47,7 +41,7 @@ export default function MyEvents() {
         My Events
       </h2>
       <div className="space-y-2">
-        {events.map(({ event }) => {
+        {events.map((event) => {
           const status = getEventStatus(event);
           return (
             <a

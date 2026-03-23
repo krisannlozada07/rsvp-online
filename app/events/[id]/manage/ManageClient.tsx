@@ -7,6 +7,7 @@ import ResponseList from "@/components/ResponseList";
 import ShareButton from "@/components/ShareButton";
 import ThemeUpload from "@/components/ThemeUpload";
 import Countdown from "@/components/Countdown";
+import EditEventForm from "@/components/EditEventForm";
 import { getEventStatus, statusLabel, statusColor } from "@/lib/utils";
 
 interface Props {
@@ -20,18 +21,29 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
   const [isCreator, setIsCreator] = useState(false);
   const [creatorToken, setCreatorToken] = useState("");
   const [closing, setClosing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [tab, setTab] = useState<"responses" | "settings">("responses");
   const [shareUrl, setShareUrl] = useState("");
 
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("creator_events") || "{}");
-    const token = stored[event.id];
+    const entry = stored[event.id];
+    // Support both old format (string token) and new format ({ token, event })
+    const token = typeof entry === "string" ? entry : entry?.token;
     if (token) {
       setIsCreator(true);
       setCreatorToken(token);
+      // Upgrade old format in place
+      if (typeof entry === "string") {
+        stored[event.id] = { token, event };
+        localStorage.setItem("creator_events", JSON.stringify(stored));
+      }
     }
     setShareUrl(`${window.location.origin}/events/${event.id}`);
-  }, [event.id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.id]); // intentionally omit `event` — only run once on mount
 
   async function refreshRSVPs() {
     const res = await fetch(`/api/events/${event.id}/rsvps`);
@@ -53,9 +65,40 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
       if (res.ok) {
         const data = await res.json();
         setEvent(data);
+        syncToLocalStorage(data);
       }
     } finally {
       setClosing(false);
+    }
+  }
+
+  function syncToLocalStorage(updatedEvent: Event) {
+    const stored = JSON.parse(localStorage.getItem("creator_events") || "{}");
+    const entry = stored[updatedEvent.id];
+    const token = typeof entry === "string" ? entry : entry?.token;
+    if (token) {
+      stored[updatedEvent.id] = { token, event: updatedEvent };
+      localStorage.setItem("creator_events", JSON.stringify(stored));
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creator_token: creatorToken }),
+      });
+      if (res.ok) {
+        // Remove from localStorage
+        const stored = JSON.parse(localStorage.getItem("creator_events") || "{}");
+        delete stored[event.id];
+        localStorage.setItem("creator_events", JSON.stringify(stored));
+        window.location.href = "/";
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -123,6 +166,37 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
         <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 space-y-6">
           <h2 className="text-base font-semibold text-stone-900">Event Settings</h2>
 
+          {/* Edit Event */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-medium text-stone-700">Event Details</p>
+              {!isEditing && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs text-stone-500 hover:text-stone-900 border border-stone-300 px-3 py-1 rounded-lg transition-colors"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {isEditing ? (
+              <EditEventForm
+                event={event}
+                creatorToken={creatorToken}
+                onSaved={(updated) => { setEvent(updated); setIsEditing(false); syncToLocalStorage(updated); }}
+                onCancel={() => setIsEditing(false)}
+              />
+            ) : (
+              <div className="text-sm text-stone-500 space-y-1">
+                <p><span className="text-stone-700 font-medium">{event.title}</span></p>
+                {event.description && <p>{event.description}</p>}
+                {event.location && <p>📍 {event.location}</p>}
+              </div>
+            )}
+          </div>
+
+          <hr className="border-stone-200" />
+
           {/* Theme Upload */}
           <ThemeUpload
             eventId={event.id}
@@ -171,6 +245,46 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
             >
               {shareUrl}
             </a>
+          </div>
+
+          <hr className="border-stone-200" />
+
+          {/* Delete Event */}
+          <div>
+            <p className="text-sm font-medium text-stone-700 mb-1">Danger Zone</p>
+            <p className="text-xs text-stone-500 mb-3">
+              Permanently delete this event and all its RSVP responses. This cannot be undone.
+            </p>
+
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full border border-rose-300 text-rose-600 py-2.5 rounded-xl text-sm font-medium hover:bg-rose-50 transition-colors"
+              >
+                Delete Event
+              </button>
+            ) : (
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm text-rose-800 font-medium">
+                  Are you sure? This will delete the event and all {rsvps.length} response{rsvps.length !== 1 ? "s" : ""}.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 border border-stone-300 text-stone-700 py-2 rounded-lg text-sm font-medium hover:bg-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 bg-rose-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-rose-700 disabled:opacity-50 transition-colors"
+                  >
+                    {deleting ? "Deleting..." : "Yes, Delete"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
