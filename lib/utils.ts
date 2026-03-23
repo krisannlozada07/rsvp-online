@@ -40,15 +40,21 @@ export function getLocalRSVPKey(eventId: string) {
   return `rsvp_${eventId}`;
 }
 
-// Interpret a datetime-local string (no timezone) as UTC+8 and return UTC ISO
+// Interpret a datetime-local string (YYYY-MM-DDTHH:mm) as UTC+8 and return UTC ISO.
+// Uses Date.UTC explicitly — no string timezone parsing which varies across browsers.
 export function localInputToUTC8ISO(local: string): string {
   if (!local) return "";
-  return new Date(local + ":00+08:00").toISOString();
+  const [datePart, timePart] = local.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hours, minutes] = timePart.split(":").map(Number);
+  // UTC+8 means UTC = local - 8h
+  return new Date(Date.UTC(year, month - 1, day, hours - 8, minutes)).toISOString();
 }
 
-// Convert a UTC ISO string to a datetime-local input value shown in UTC+8
+// Convert a UTC ISO string to a datetime-local input value displayed in UTC+8.
 export function utcToUTC8Input(iso: string): string {
   if (!iso) return "";
+  // Add 8h to get UTC+8 wall time, then format as YYYY-MM-DDTHH:mm
   const utc8ms = new Date(iso).getTime() + 8 * 60 * 60 * 1000;
   return new Date(utc8ms).toISOString().slice(0, 16);
 }

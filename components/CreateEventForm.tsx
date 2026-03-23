@@ -61,9 +61,9 @@ export default function CreateEventForm() {
 
       const event = await res.json();
 
-      // Store event + creator token so My Events list works without a Supabase query
+      // Store creator token keyed by event ID
       const stored = JSON.parse(localStorage.getItem("creator_events") || "{}");
-      stored[event.id] = { token: creator_token, event };
+      stored[event.id] = creator_token;
       localStorage.setItem("creator_events", JSON.stringify(stored));
 
       router.push(`/events/${event.id}/manage`);

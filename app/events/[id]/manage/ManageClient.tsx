@@ -30,20 +30,14 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem("creator_events") || "{}");
     const entry = stored[event.id];
-    // Support both old format (string token) and new format ({ token, event })
+    // Support old { token, event } format and current plain-string format
     const token = typeof entry === "string" ? entry : entry?.token;
     if (token) {
       setIsCreator(true);
       setCreatorToken(token);
-      // Upgrade old format in place
-      if (typeof entry === "string") {
-        stored[event.id] = { token, event };
-        localStorage.setItem("creator_events", JSON.stringify(stored));
-      }
     }
     setShareUrl(`${window.location.origin}/events/${event.id}`);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event.id]); // intentionally omit `event` — only run once on mount
+  }, [event.id]);
 
   async function refreshRSVPs() {
     const res = await fetch(`/api/events/${event.id}/rsvps`);
@@ -65,20 +59,9 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
       if (res.ok) {
         const data = await res.json();
         setEvent(data);
-        syncToLocalStorage(data);
       }
     } finally {
       setClosing(false);
-    }
-  }
-
-  function syncToLocalStorage(updatedEvent: Event) {
-    const stored = JSON.parse(localStorage.getItem("creator_events") || "{}");
-    const entry = stored[updatedEvent.id];
-    const token = typeof entry === "string" ? entry : entry?.token;
-    if (token) {
-      stored[updatedEvent.id] = { token, event: updatedEvent };
-      localStorage.setItem("creator_events", JSON.stringify(stored));
     }
   }
 
@@ -183,7 +166,7 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
               <EditEventForm
                 event={event}
                 creatorToken={creatorToken}
-                onSaved={(updated) => { setEvent(updated); setIsEditing(false); syncToLocalStorage(updated); }}
+                onSaved={(updated) => { setEvent(updated); setIsEditing(false); }}
                 onCancel={() => setIsEditing(false)}
               />
             ) : (

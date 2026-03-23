@@ -4,36 +4,48 @@ import { useState, useEffect } from "react";
 import { Event } from "@/types";
 import { formatDate, getEventStatus, statusLabel, statusColor } from "@/lib/utils";
 
-interface StoredEntry {
-  token: string;
-  event: Event;
-}
-
 export default function MyEvents() {
   const [events, setEvents] = useState<Event[]>([]);
-  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const raw = localStorage.getItem("creator_events");
-    if (!raw) { setMounted(true); return; }
+    async function load() {
+      try {
+        const raw = localStorage.getItem("creator_events");
+        if (!raw) { setLoading(false); return; }
 
-    const stored: Record<string, StoredEntry | string> = JSON.parse(raw);
-    const list: Event[] = [];
+        const stored: Record<string, unknown> = JSON.parse(raw);
+        const ids = Object.keys(stored);
+        if (ids.length === 0) { setLoading(false); return; }
 
-    for (const entry of Object.values(stored)) {
-      // New format: { token, event }  |  Old format: just a token string (skip)
-      if (typeof entry === "object" && entry.event) {
-        list.push(entry.event);
+        const res = await fetch(`/api/events?ids=${ids.join(",")}`);
+        if (!res.ok) throw new Error("Failed to load events");
+
+        const data: Event[] = await res.json();
+        setEvents(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load events");
+      } finally {
+        setLoading(false);
       }
     }
-
-    // Newest first by created_at
-    list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    setEvents(list);
-    setMounted(true);
+    load();
   }, []);
 
-  if (!mounted || events.length === 0) return null;
+  if (loading) return (
+    <div className="space-y-2">
+      {[1, 2].map(i => (
+        <div key={i} className="h-14 bg-stone-100 rounded-xl animate-pulse" />
+      ))}
+    </div>
+  );
+
+  if (error) return (
+    <p className="text-sm text-rose-500">{error}</p>
+  );
+
+  if (events.length === 0) return null;
 
   return (
     <div>
