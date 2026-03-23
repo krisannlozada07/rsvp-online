@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Event, RSVP } from "@/types";
 import EventHeader from "@/components/EventHeader";
 import ResponseList from "@/components/ResponseList";
 import ShareButton from "@/components/ShareButton";
 import ThemeUpload from "@/components/ThemeUpload";
+import Countdown from "@/components/Countdown";
 import { getEventStatus, statusLabel, statusColor } from "@/lib/utils";
 
 interface Props {
@@ -15,7 +15,6 @@ interface Props {
 }
 
 export default function ManageClient({ event: initialEvent, initialRSVPs }: Props) {
-  const router = useRouter();
   const [event, setEvent] = useState<Event>(initialEvent);
   const [rsvps, setRsvps] = useState<RSVP[]>(initialRSVPs);
   const [isCreator, setIsCreator] = useState(false);
@@ -65,6 +64,7 @@ export default function ManageClient({ event: initialEvent, initialRSVPs }: Prop
   return (
     <div className="space-y-6">
       <EventHeader event={event} />
+      <Countdown event={event} />
 
       {/* Non-creator notice */}
       {!isCreator && (

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase";
 import EventHeader from "@/components/EventHeader";
 import RSVPForm from "@/components/RSVPForm";
+import Countdown from "@/components/Countdown";
 import { Event } from "@/types";
 
 interface Props {
@@ -29,6 +30,7 @@ export default async function EventPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <EventHeader event={event} />
+      <Countdown event={event} />
 
       <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6">
         <h2 className="text-base font-semibold text-stone-900 mb-5">Your RSVP</h2>

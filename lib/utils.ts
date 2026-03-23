@@ -1,5 +1,7 @@
-import { format, isAfter, isBefore } from "date-fns";
+import { isAfter, isBefore } from "date-fns";
 import { RSVPStatus, Event } from "@/types";
+
+const TZ = "Asia/Manila"; // UTC+8
 
 export function getEventStatus(event: Event): RSVPStatus {
   if (event.is_closed) return "force_closed";
@@ -11,13 +13,27 @@ export function getEventStatus(event: Event): RSVPStatus {
   return "open";
 }
 
-export function formatDate(dateStr: string | null, fmt = "MMM d, yyyy"): string {
+export function formatDate(dateStr: string | null, fmt?: string): string {
   if (!dateStr) return "";
-  return format(new Date(dateStr), fmt);
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: TZ,
+    weekday: fmt === "EEEE, MMMM d, yyyy" ? "long" : undefined,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(dateStr));
 }
 
 export function formatDateTime(dateStr: string): string {
-  return format(new Date(dateStr), "MMM d, yyyy h:mm a");
+  return new Intl.DateTimeFormat("en-PH", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(dateStr));
 }
 
 export function getLocalRSVPKey(eventId: string) {
